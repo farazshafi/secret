@@ -4,9 +4,9 @@ const express = require("express");
 const ejs = require("ejs");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
-const md5 = require("md5");
-
+const bcrypt = require("bcrypt");
 const app = express();
+const saltRounds = 10;
 
 app.set('view engine', 'ejs');
 app.use(express.static("public"));
@@ -32,18 +32,20 @@ app.get("/login", ((req, res) => {
 
 app.post("/login", function (req, res) {
     const userName = req.body.username;
-    const userPassword = md5(req.body.password);
+    const userPassword = req.body.password;
 
     User.findOne({ email: userName }, ((err, foundedOne) => {
         if (err) {
             res.send("You Have an erro while finding Your data , The error is " + err);
         } else {
             if (foundedOne) {
-                if (foundedOne.password === userPassword) {
-                    res.render("secrets")
-                }else{
-                    res.send("Your Password is wrong , Please check your password again")
-                }
+                bcrypt.compare(userPassword, foundedOne.password, function (err, result) {
+                    if (result === true) {
+                        res.render("secrets");
+                    } else {
+                        res.send("Your Password is wrong , Please check your password again")
+                    }
+                });
             };
         };
     }));
@@ -56,17 +58,20 @@ app.get("/register", ((req, res) => {
 }));
 
 app.post("/register", function (req, res) {
-    const newuser = new User({
-        email: req.body.username,
-        password: md5(req.body.password)
-    })
-    newuser.save((err) => {
-        if (err) {
-            res.send("You have a error While saving user data" + err);
-        } else {
-            res.render("secrets");
-        }
-    });
+
+    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+        const newuser = new User({
+            email: req.body.username,
+            password: hash
+        })
+        newuser.save((err) => {
+            if (err) {
+                res.send("You have a error While saving user data" + err);
+            } else {
+                res.render("secrets");
+            }
+        });
+    });;
 });
 
 
